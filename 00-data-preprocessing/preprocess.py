@@ -38,8 +38,7 @@ def preprocess_file(raw_data_filepath, processed_data_dir, processed_filename):
             sentence_tokens = bnltk.sentence_tokenize(line)
             for sentence_token in sentence_tokens:
                 if pure_sentence(sentence_token):
-                    processed_sentence = process_sentence(sentence_token)
-                    processed_data_file.write(processed_sentence)
+                    processed_data_file.write(sentence_token)
                     processed_data_file.write("\n")
             if i % 1000 == 0:
                 print(f"Processed {i} lines")

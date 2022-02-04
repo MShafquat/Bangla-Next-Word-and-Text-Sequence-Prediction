@@ -7,3 +7,6 @@ venv/
 
 # files ending with ~
 *~
+
+# pickle file
+*.pkl
