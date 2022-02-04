@@ -1,0 +1,9 @@
+# dataset
+data/
+processed_data/
+
+# virtualenv
+venv/
+
+# files ending with ~
+*~
