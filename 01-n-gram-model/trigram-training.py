@@ -12,11 +12,11 @@ print("Counting frequencies")
 with open('../processed_data/processed_data.txt') as data:
     for i, line in enumerate(data):
         i += 1
-        for w1, w2, w3 in trigrams(line, pad_right=True, pad_left=True):
+        for w1, w2, w3 in trigrams(line.split()):
             model[(w1, w2)][w3] += 1
         if i % 10000 == 0:
             print(f"Processed {i} lines")
-            break
+
 
 # convert to probabilities
 print("Converting to probabilities")
