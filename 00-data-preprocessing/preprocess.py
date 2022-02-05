@@ -1,15 +1,14 @@
 import os
+import regex
 from bnlp import NLTKTokenizer
-from bnlp.corpus import letters, digits, punctuations, vower_mark
 
 def pure_sentence(str):
     """
     Check if str is a pure bengali sentence containing
-    only bengali letters and digits
+    only bengali letters, digits, and punctuations
     """
-    valids = letters + digits + vower_mark + punctuations + "্"
-    return len(str) > 2 and all(thing in valids for thing in set(str))
-
+    return bool(regex.fullmatch(
+        r'\P{L}*\p{Bengali}+(?:\P{L}+\p{Bengali}+)*\P{L}*', str))
 
 def process_sentence(str):
     """
@@ -40,7 +39,7 @@ def preprocess_file(raw_data_filepath, processed_data_dir, processed_filename):
                 if pure_sentence(sentence_token):
                     processed_data_file.write(sentence_token)
                     processed_data_file.write("\n")
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 print(f"Processed {i} lines")
 
     processed_data_file.close()
