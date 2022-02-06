@@ -57,7 +57,7 @@ class NgramModel():
 
     def load(self, model_path, n):
         with open(model_path, "rb") as model_file:
-            self.model = dill.loads(model_file)
+            self.model = dill.load(model_file)
         self.n = n        
 
 
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     print("Model loaded")
     trigram.train_model()
     trigram.save("../model/trigram-model.pkl")
-    # trigram.load("../model/trigram-model.pkl", n=3)
+    trigram.load("../model/trigram-model.pkl", n=3)
     print(f"Train perplexity: {trigram.train_perplexity()}")
     print(f"Test perplexity: {trigram.test_perplexity()}")
 
