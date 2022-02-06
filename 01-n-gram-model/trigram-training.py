@@ -1,79 +1,51 @@
+from collections import defaultdict
+import dill
 import os
 import pickle
-from collections import Counter, defaultdict
+import random
+import numpy as np
+from bnlp import NLTKTokenizer
 from nltk import ngrams
-from nltk.probability import ConditionalFreqDist
 
 class NgramModel():
-    def __init__(self, filepath=None, n=0, train_test_split=0.8):
-        self.model = dict()
-        self.filepath = filepath
-        if filepath:
-            self.num_lines = sum(1 for _ in open(self.filepath))
+    def __init__(self, filepath=None, n=0, num_sentences=0,
+                 train_test_split=0.8):
         self.n = n
+        self.model = defaultdict(lambda: defaultdict(int))
+        self.filepath = filepath
+        self.bnltk = NLTKTokenizer()
+        self.data = None
+        self.num_sentences = num_sentences
         self.train_test_split = 0.8
+        self.train_size = int(self.num_sentences * self.train_test_split)
+        self.train_data = None
+        self.test_data = None
+        if filepath:
+            self.data = open(filepath).readlines()[:num_sentences]
+            random.shuffle(self.data)
+            self.data = [self.bnltk.word_tokenize(line) for line in self.data]
+            self.train_data = self.data[:self.train_size]
+            self.test_data = self.data[self.train_size:]
 
     def train_model(self):
-        num_lines_to_read = int(self.num_lines * self.train_test_split)
-        with open(self.filepath) as datafile:
-            for i, line in enumerate(datafile):
-                for bag in ngrams(line.split(), self.n):
-                    prev_words = bag[:-1]
-                    cur_word = bag[-1]
-                    self.model[prev_words] = self.model.get(prev_words, {})
-                    self.model[prev_words][cur_word] = self.model.get(
-                        cur_word, 0)
-                    self.model[prev_words][cur_word] += 1
-                if (i + 1) == num_lines_to_read:
-                    break
-                if (i + 1) % 10000 == 0:
-                    print(f"Trained {i+1} lines")
-                    break
-        for prev_words in self.model:
-            total_count = sum(self.model[prev_words].values())
-            for cur_word in self.model[prev_words]:
-                self.model[prev_words][cur_word] /= total_count
-        return self.model
+        for line in self.train_data:
+            for words in ngrams(line, self.n):
+                self.model[words[:-1]][words[-1]] += 1
+
+        for pre in self.model:
+            total_count = sum(self.model[pre].values())
+            for cur in self.model[pre]:
+                self.model[pre][cur] /= total_count
 
     def predict(self, sentence):
-        words = sentence.split()
-        bag = words[-self.n+1:]
-        return self.model.get(tuple(bag), {})
+        sentence = self.bnltk.word_tokenize(sentence)[-self.n+1:]
+        return self.model[sentence]
 
     def train_perplexity(self):
-        res = 1
-        for bag in self.model:
-            for key in self.model[bag]:
-                val = self.model[bag][key]
-                if val == 0:
-                    res *= 100
-                    res = res ** (1/self.n)
-                else:
-                    res *= (1 / val)
-                    res = res ** (1/self.n)
-        return res
-
+        pass
+    
     def test_perplexity(self):
-        num_lines_to_skip = int(self.num_lines * self.train_test_split)
-        res = 1
-        with open(self.filepath) as datafile:
-            for i, line in enumerate(datafile):
-                if i > num_lines_to_skip:
-                    for bag in ngrams(line.split(), self.n):
-                        prev_words = bag[:-1]
-                        cur_word = bag[:-1]
-                        try:
-                            val = model[prev_words][cur_word]
-                            if val == 0:
-                                res *= 100
-                                res = res ** (1/self.n)
-                            else:
-                                res *= (1 / val)
-                                res = res ** (1/self.n)
-                        except:
-                            res *= 100
-                            res = res ** (1/self.n)
-        return res
+        pass
 
     def save(self, model_path):
         # save the model
@@ -81,25 +53,29 @@ class NgramModel():
         if not os.path.exists(dir_path):
             os.makedirs(dir_path, exist_ok=True)
         with open(model_path, "wb") as pkl_handle:
-            pickle.dump(self.model, pkl_handle)
+            dill.dump(self.model, pkl_handle)
 
     def load(self, model_path, n):
         with open(model_path, "rb") as model_file:
-            self.model = pickle.load(model_file)
-            print(len(self.model))
+            self.model = dill.loads(model_file)
         self.n = n        
 
 
 if __name__ == '__main__':
-    trigram = NgramModel("../processed_data/processed_data.txt", n=3)
+    trigram = NgramModel("../processed_data/processed_data.txt",
+                         num_sentences=100_000, n=3)
+    print("Model loaded")
     trigram.train_model()
     trigram.save("../model/trigram-model.pkl")
+    # trigram.load("../model/trigram-model.pkl", n=3)
     print(f"Train perplexity: {trigram.train_perplexity()}")
     print(f"Test perplexity: {trigram.test_perplexity()}")
 
     while True:
         try:
-            print(trigram.predict(input()))
+            print(trigram.predict(input(">>> ")))
+        except EOFError:
+            print()
+            break
         except KeyboardInterrupt:
             break
-
