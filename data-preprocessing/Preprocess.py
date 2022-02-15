@@ -4,24 +4,24 @@ import pandas as pd
 import re
 
 class Preprocess():
-    def __init__(self, raw_files_dir, processed_file_dir):
-        self.raw_files_dir = raw_files_dir
-        self.processed_file_path = processed_file_dir
-        os.makedirs(processed_file_dir, exist_ok=True)
-        self.raw_files = Path(self.raw_files_dir).glob('**/*.txt')
+    def __init__(self, unprocessed_files_dir, processed_files_dir):
+        self.unprocessed_files_dir = unprocessed_files_dir
+        self.processed_file_path = processed_files_dir
+        os.makedirs(processed_files_dir, exist_ok=True)
+        self.unprocessed_files = Path(self.unprocessed_files_dir).glob('**/*.txt')
         self.preprocess_and_save_files()
 
     def preprocess_and_save_files(self):
         """
-        Performs preprocessing on all files in the raw_files_dir
-        and saves the processed dataframes to the processed_file_dir
+        Performs preprocessing on all files in the unprocessed_files_dir
+        and saves the processed dataframes to the processed_files_dir
         """
-        for file in self.raw_files:
+        for file in self.unprocessed_files:
             file_name = file.name
-            file_path = self.processed_file_path / file_name
+            file_path = Path(self.processed_file_path) / file_name
             df = self.preprocess_file(file)
             self.save_dataframe_to_file(df, file_path)
-    
+
     def preprocess_file(self, file_path):
         """
         Performs preprocessing on a text file and returns a dataframe
