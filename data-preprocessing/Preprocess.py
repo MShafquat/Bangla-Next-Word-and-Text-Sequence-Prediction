@@ -60,5 +60,5 @@ class Preprocess():
         return bool(re.match(pattern, row)) and row != ' '
 
 if __name__ == '__main__':
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).resolve().parents[1]
     preprocess = Preprocess(project_root / 'data/', project_root / 'processed_data/')
