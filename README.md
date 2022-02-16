@@ -10,9 +10,11 @@ Different next-word prediction models are implemented and trained using [Bengali
 
 ## Project Structure
 ### Data Preprocessing
-1. [Preprocess.py](./data-preprocessing/Preprocess.py) reads files from `data` directory in the project root,
+1. [split.sh](./data-preprocessing/split.sh) splits files in `data` directory into multiple 500 mb files and
+moves original files to `tmp` directory. Make the file executable `chmod +x split.sh` and run using `./split.sh`.
+2. [Preprocess.py](./data-preprocessing/Preprocess.py) reads files from `data` directory in the project root,
 and after preprocessing stores the preprocessed files to the `processed_data` directory in the project root.
-2. Additionally, the `Preprocess` class can be used from [Preprocess.py](./data-preprocessing/Preprocess.py)
+3. Alternatively, the `Preprocess` class can be used from [Preprocess.py](./data-preprocessing/Preprocess.py)
 file which takes two string parameters as constructor: `unprocessed_files_dir` which contains unprocessed text
 files and `processed_files_dir` where the processed files will be stored. The processed files will have the
 same name as the original files.

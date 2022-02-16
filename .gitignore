@@ -1,6 +1,8 @@
 # dataset
 data/
 processed_data/
+tmp/
+tmp1/
 
 # virtualenv
 venv/
@@ -10,3 +12,6 @@ venv/
 
 # pickle file
 *.pkl
+
+# pycache
+**/__pycache__/
