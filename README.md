@@ -1,6 +1,6 @@
 # Bangla Next Word Prediction
 
-Different next-word prediction models are implemented and trained using [Bengali OSCAR Corpus](https://www.kaggle.com/tapash39/bengali-oscar-corpus).
+Different next-word prediction models are implemented and trained using Bangla and English corpus of [OSCAR](https://oscar-corpus.com/).
 
 ## Necessary steps to setup the project
 1. Download and extract the dataset, `bn_dedup.txt` and moved to `data/` directory.
