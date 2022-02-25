@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import shutil
 import pandas as pd
 import re
 
@@ -17,16 +18,19 @@ class Preprocess():
         and saves the processed dataframes to the processed_files_dir
         """
         for file in self.unprocessed_files:
-            file_name = file.name
-            file_path = Path(self.processed_file_path) / file_name
-            df = self.preprocess_file(file)
-            self.save_dataframe_to_file(df, file_path)
+            try:
+                file_name = file.name
+                file_path = Path(self.processed_file_path) / file_name
+                df = self.preprocess_file(file)
+                self.save_dataframe_to_file(df, file_path)
+            except Exception as e:
+                pass
 
     def preprocess_file(self, file_path):
         """
         Performs preprocessing on a text file and returns a dataframe
         """
-        data = pd.read_csv(file_path, sep="\r\n", engine='python', header=None)[0] # reads text file as dataframe
+        data = pd.read_csv(file_path, sep="\r\n", engine='python', encoding="utf-8", header=None)[0] # reads text file as dataframe
         data = data.str.split('।|\.|\?|!').explode() # splits long text to separate sentences
         data = data.apply(self.__replace_unknowns) # removes unknown characters
         data = data[data.apply(self.__is_bangla_sentence)] # removes non-bangla sentences
@@ -39,6 +43,7 @@ class Preprocess():
         """
         Writes the processed dataframe to a file
         """
+        shutil.rmtree(file_path, ignore_errors=True)
         df.to_csv(file_path, sep='\n', index=False, header=False)
 
     def __replace_unknowns(self, row):
