@@ -24,13 +24,14 @@ class Preprocess():
                 df = self.preprocess_file(file)
                 self.save_dataframe_to_file(df, file_path)
             except Exception as e:
+                print(f"There is a problem with {file.name} which is {e}")
                 pass
 
     def preprocess_file(self, file_path):
         """
         Performs preprocessing on a text file and returns a dataframe
         """
-        data = pd.read_csv(file_path, sep="\r\n", engine='python', encoding="utf-8", header=None)[0] # reads text file as dataframe
+        data = pd.read_csv(file_path, sep="\r\n", engine='python', encoding='utf-8', header=None)[0] # reads text file as dataframe
         data = data.str.split('।|\.|\?|!').explode() # splits long text to separate sentences
         data = data.apply(self.__replace_unknowns) # removes unknown characters
         data = data[data.apply(self.__is_bangla_sentence)] # removes non-bangla sentences
