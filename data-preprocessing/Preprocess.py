@@ -20,6 +20,7 @@ class Preprocess():
         for file in self.unprocessed_files:
             try:
                 file_name = file.name
+                print(f'Preprocessing {file_name}')
                 file_path = Path(self.processed_file_path) / file_name
                 df = self.preprocess_file(file)
                 self.save_dataframe_to_file(df, file_path)
@@ -35,8 +36,7 @@ class Preprocess():
         data = data.str.split('।|\.|\?|!').explode() # splits long text to separate sentences
         data = data.apply(self.__replace_unknowns) # removes unknown characters
         data = data[data.apply(self.__is_bangla_sentence)] # removes non-bangla sentences
-        data = data.dropna() # removes NaN values
-        data = data.drop_duplicates() # removes duplicate sentences
+        data = data[data.apply(lambda x: len(x.split()) >= 2)] # removes sentences with less than 2 words
         data = data.reset_index(drop=True) # resets index
         return data
 
@@ -61,6 +61,7 @@ class Preprocess():
         """
         Checks if a string is a pure Bangla sentence
         containing only Bangla letters, digits, and spaces
+        \u0020 is space, \u0980-\u09FF is Bangla unicode range
         """
         pattern = u'^(\u0020|[\u0980-\u09FF])+$'
         return bool(re.match(pattern, row)) and row != ' '
