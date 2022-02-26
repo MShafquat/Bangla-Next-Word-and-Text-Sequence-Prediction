@@ -1,8 +1,7 @@
 # dataset
 data/
 processed_data/
-tmp/
-tmp1/
+tmp*/
 
 # virtualenv
 venv/
