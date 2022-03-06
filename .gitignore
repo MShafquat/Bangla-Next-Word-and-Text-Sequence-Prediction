@@ -3,6 +3,9 @@ data/
 processed_data/
 tmp*/
 
+# model
+models/
+
 # virtualenv
 venv/
 
