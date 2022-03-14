@@ -1,3 +1,5 @@
+from calendar import c
+import math
 import os
 from pathlib import Path
 from tokenizers import ByteLevelBPETokenizer
@@ -7,6 +9,7 @@ from transformers import TextDataset, DataCollatorForLanguageModeling
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
 from transformers import Trainer, TrainingArguments
 from datasets import load_dataset
+import numpy as np
 
 # get data directory
 project_root = Path(__file__).resolve().parents[1]
@@ -52,16 +55,6 @@ tokenized_dataset = dataset.map(
     num_proc=num_proc,
     remove_columns=["text"],
 )
-# print(tokenized_dataset)
-# train_dataset = TextDataset(
-#     tokenizer=tokenizer,
-#     file_path=files[:-1],
-#     block_size=128)
-
-# test_dataset = TextDataset(
-#     tokenizer=tokenizer,
-#     file_path=files[-1:],
-#     block_size=128)
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=False,
@@ -83,14 +76,15 @@ training_args = TrainingArguments(
     output_dir=str(project_root / 'models/bn-gpt2/'),
     overwrite_output_dir=True,
     num_train_epochs=1,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
+    per_device_train_batch_size=1,
+    per_device_eval_batch_size=1,
     gradient_accumulation_steps=4,
     fp16=True,
     optim="adafactor",
-    eval_steps=400,
-    save_steps=800,
+    eval_steps=500,
+    save_steps=1000,
     warmup_steps=500,
+    evaluation_strategy="steps",
 )
 
 trainer = Trainer(
