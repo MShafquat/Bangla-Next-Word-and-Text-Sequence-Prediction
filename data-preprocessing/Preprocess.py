@@ -52,7 +52,7 @@ class Preprocess():
         Replaces everything that is not any English or Bangla
         alphanumeric character with an space
         """
-        row = re.sub(u'[^A-Za-z0-9\u0980-\u09FF ]',' ', row)
+        row = re.sub(u'[^A-Za-z0-9\u0980-\u09FF. ]',' ', row)
         row = re.sub(' +',' ', row)
         row = row.strip()
         return row
