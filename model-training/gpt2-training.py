@@ -28,12 +28,14 @@ files = [str(file) for file in Path(data_dir).glob('**/*.txt')][:2]
 # # create a model directory if does not exist and save the tokenizer
 # os.makedirs(project_root / 'models/bn-gpt2/', exist_ok=True)
 # tokenizer.save_model(str(project_root / 'models/bn-gpt2/'))
-tokenizer = GPT2Tokenizer.from_pretrained(str(project_root / 'models/bn-gpt2/'))
+tokenizer = GPT2Tokenizer.from_pretrained(
+    str(project_root / 'models/bn-gpt2/'))
 tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
 # creating dataset
 print("Creating dataset")
-dataset = load_dataset('text', data_files={'train': files[:-1], 'test': files[-1]})
+dataset = load_dataset('text', data_files={
+                       'train': files[:-1], 'test': files[-1]})
 max_seq_length = 512
 num_proc = 4
 
@@ -75,15 +77,17 @@ model = GPT2LMHeadModel(config).to("cuda")
 training_args = TrainingArguments(
     output_dir=str(project_root / 'models/bn-gpt2/'),
     overwrite_output_dir=True,
-    num_train_epochs=1,
-    per_device_train_batch_size=1,
-    per_device_eval_batch_size=1,
+    do_train=True,
+    do_eval=True,
+    num_train_epochs=2,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
     gradient_accumulation_steps=4,
     fp16=True,
     optim="adafactor",
-    eval_steps=500,
+    eval_steps=50,
     save_steps=1000,
-    warmup_steps=500,
+    # warmup_steps=50,
     evaluation_strategy="steps",
 )
 
@@ -97,3 +101,7 @@ trainer = Trainer(
 
 trainer.train()
 trainer.save_model()
+history = trainer.evaluate()
+print(history)
+eval_perplexity = np.exp(history['eval_loss'])
+print(f"Eval Perplexity: {eval_perplexity}")
