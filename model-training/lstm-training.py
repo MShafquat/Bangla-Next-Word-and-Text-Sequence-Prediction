@@ -33,7 +33,7 @@ file = [str(file) for file in Path(data_dir).glob('**/*.txt')][0]
 # create tokenizer
 tokenizer = Tokenizer()
 with open(file, 'r') as f:
-    text = f.read()[:100000]
+    text = f.read()[:500_000]
 
 corpus = text.split('\n')
 tokenizer.fit_on_texts(corpus)
@@ -63,7 +63,7 @@ Y = tf.keras.utils.to_categorical(labels, num_classes=total_words)
 # model training without attention
 model = tf.keras.Sequential()
 model.add(tf.keras.layers.Embedding(
-    total_words, max_sequence_len-1, input_length=max_sequence_len-1))
+    total_words, 128, input_length=max_sequence_len-1))
 model.add(tf.keras.layers.LSTM(128, return_sequences=True))
 model.add(tf.keras.layers.Dropout(0.2))
 model.add(tf.keras.layers.LSTM(64))
@@ -75,9 +75,9 @@ model.compile(loss='categorical_crossentropy',
 earlystop = tf.keras.callbacks.EarlyStopping(
     monitor='val_loss', min_delta=0, patience=5, mode='auto')
 checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
-    project_root / 'models/bn_lstm'), monitor='val_loss', verbose=1, save_best_only=True, mode='min')
-history = model.fit(X, Y, epochs=500, validation_split=0.2,
-                    callbacks=[earlystop, checkpoint])
+    project_root / 'models/bn_lstm/bn_lstm_{epoch:02d}_{val_loss:.4f}.h5'), monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+history = model.fit(X, Y, epochs=100, validation_split=0.2, batch_size=128,
+                    callbacks=[checkpoint])
 model.save(str(project_root / 'models/bn_lstm/bn_lstm.h5'), save_format='h5')
 
 with open(str(project_root / 'models/bn_lstm/history'), 'wb') as file_pi:
@@ -90,7 +90,7 @@ plt.title('model accuracy')
 plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train', 'val'], loc='upper left')
-plt.show()
+# plt.show()
 fig.savefig(str(project_root / 'models/bn_lstm/accuracy.png'), dpi=fig.dpi)
 
 fig = plt.figure(figsize=(10, 6))
@@ -100,14 +100,14 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train', 'val'], loc='upper left')
-plt.show()
+# plt.show()
 fig.savefig(str(project_root / 'models/bn_lstm/loss.png'), dpi=fig.dpi)
 
 
 # model training with attention
 model = tf.keras.Sequential()
 model.add(tf.keras.layers.Embedding(
-    total_words, max_sequence_len-1, input_length=max_sequence_len-1))
+    total_words, 128, input_length=max_sequence_len-1))
 model.add(tf.keras.layers.LSTM(128, return_sequences=True))
 model.add(Attention())
 # model.add(tf.keras.layers.Dense(50, activation='relu'))
@@ -118,9 +118,10 @@ model.compile(loss='categorical_crossentropy',
 earlystop = tf.keras.callbacks.EarlyStopping(
     monitor='val_loss', min_delta=0, patience=5, mode='auto')
 checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
-    project_root / 'models/bn_lstm_with_attention'), monitor='val_loss', verbose=1, save_best_only=True, mode='min')
-history = model.fit(X, Y, epochs=500, validation_split=0.2,
-                    callbacks=[earlystop, checkpoint])
+    project_root / 'models/bn_lstm_with_attention/bn_lstm_with_attention_{epoch:02d}_{val_loss:.4f}.h5'),
+    monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+history = model.fit(X, Y, epochs=100, validation_split=0.2, batch_size=128,
+                    callbacks=[checkpoint])
 model.save(str(project_root /
            'models/bn_lstm_with_attention/bn_lstm_with_attention.h5'), save_format='h5')
 
@@ -134,7 +135,7 @@ plt.title('model accuracy')
 plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train', 'val'], loc='upper left')
-plt.show()
+# plt.show()
 fig.savefig(
     str(project_root / 'models/bn_lstm_with_attention/accuracy.png'), dpi=fig.dpi)
 
@@ -145,6 +146,6 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train', 'val'], loc='upper left')
-plt.show()
+# plt.show()
 fig.savefig(
     str(project_root / 'models/bn_lstm_with_attention/loss.png'), dpi=fig.dpi)

@@ -1,107 +1,37 @@
-from calendar import c
-import math
-import os
 from pathlib import Path
-from tokenizers import ByteLevelBPETokenizer
-from tokenizers import normalizers
-from tokenizers.normalizers import NFKC
-from transformers import TextDataset, DataCollatorForLanguageModeling
-from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
-from transformers import Trainer, TrainingArguments
 from datasets import load_dataset
-import numpy as np
+from transformers import AutoTokenizer, TFGPT2LMHeadModel
+from transformers import TextDataset, DataCollatorForLanguageModeling
+from transformers import Trainer, TrainingArguments
+import tensorflow as tf
 
 # get data directory
 project_root = Path(__file__).resolve().parents[1]
 data_dir = project_root / 'processed_data/'
-files = [str(file) for file in Path(data_dir).glob('**/*.txt')][:2]
+files = [str(file) for file in Path(data_dir).glob('**/*.txt')][:1]
 
-# training the tokenizer
-# tokenizer = ByteLevelBPETokenizer()
-# normalizer = normalizers.Sequence([NFKC()])
-# tokenizer.normalizer = normalizer
-# tokenizer.train(files=files,
-#                 vocab_size=30_000,
-#                 min_frequency=10,
-#                 special_tokens=['<s>', '<pad>', '</s>', '<unk>', '<mask>'])
+tokenizer = AutoTokenizer.from_pretrained("flax-community/gpt2-bengali")
 
-# # create a model directory if does not exist and save the tokenizer
-# os.makedirs(project_root / 'models/bn-gpt2/', exist_ok=True)
-# tokenizer.save_model(str(project_root / 'models/bn-gpt2/'))
-tokenizer = GPT2Tokenizer.from_pretrained(
-    str(project_root / 'models/bn-gpt2/'))
-tokenizer.add_special_tokens({"pad_token": "<pad>"})
+with tf.distribute.get_strategy().scope():
+    model = TFGPT2LMHeadModel.from_pretrained(
+        "flax-community/gpt2-bengali", from_pt=True)
+    model.resize_token_embeddings(len(tokenizer))
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
+    model.compile(optimizer=optimizer, loss=model.compute_loss)
 
-# creating dataset
-print("Creating dataset")
-dataset = load_dataset('text', data_files={
-                       'train': files[:-1], 'test': files[-1]})
-max_seq_length = 512
-num_proc = 4
-
-
-def tokenize_function(examples):
-    # Remove empty lines
-    examples["text"] = [line for line in examples["text"]
-                        if len(line) > 0 and not line.isspace()]
-    return tokenizer(
-        examples["text"],
-        truncation=True,
-        max_length=max_seq_length,
-    )
-
-
-tokenized_dataset = dataset.map(
-    tokenize_function,
-    batched=True,
-    num_proc=num_proc,
-    remove_columns=["text"],
-)
-
+train_dataset = load_dataset('text', data_files=files)
+train_dataset = train_dataset.map(lambda examples: tokenizer(examples['text']), batched=True, num_proc=4, remove_columns=['text'])
 data_collator = DataCollatorForLanguageModeling(
-    tokenizer=tokenizer, mlm=False,
-)
-print("Dataset created")
-
-# creating the configurations from which the model can be made
-config = GPT2Config(
-    vocab_size=tokenizer.vocab_size,
-    bos_token_id=tokenizer.bos_token_id,
-    eos_token_id=tokenizer.eos_token_id,
-    pad_token_id=tokenizer.pad_token_id,
+    tokenizer=tokenizer, mlm=False, return_tensors="tf"
 )
 
-# creating the model
-model = GPT2LMHeadModel(config).to("cuda")
-
-training_args = TrainingArguments(
-    output_dir=str(project_root / 'models/bn-gpt2/'),
-    overwrite_output_dir=True,
-    do_train=True,
-    do_eval=True,
-    num_train_epochs=2,
-    per_device_train_batch_size=4,
-    per_device_eval_batch_size=4,
-    gradient_accumulation_steps=4,
-    fp16=True,
-    optim="adafactor",
-    eval_steps=50,
-    save_steps=1000,
-    # warmup_steps=50,
-    evaluation_strategy="steps",
+train_dataset = train_dataset.to_tf_dataset(
+    batch_size=4, collate_fn=data_collator
 )
-
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    data_collator=data_collator,
-    train_dataset=tokenized_dataset['train'],
-    eval_dataset=tokenized_dataset['test'],
-)
-
-trainer.train()
-trainer.save_model()
-history = trainer.evaluate()
-print(history)
-eval_perplexity = np.exp(history['eval_loss'])
-print(f"Eval Perplexity: {eval_perplexity}")
+earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss', min_delta=0, patience=5, mode='auto')
+checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
+    project_root / 'models/bn_gpt2/bn_gpt2_{epoch:02d}_{val_loss:.4f}.h5'),
+    monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+history = model.fit(train_dataset, epochs=100, batch_size=128,
+                    callbacks=[checkpoint])
