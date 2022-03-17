@@ -59,6 +59,8 @@ X = input_sequences[:, :-1]
 labels = input_sequences[:, -1]
 Y = tf.keras.utils.to_categorical(labels, num_classes=total_words)
 
+
+# model training without attention
 model = tf.keras.Sequential()
 model.add(tf.keras.layers.Embedding(
     total_words, max_sequence_len-1, input_length=max_sequence_len-1))
@@ -71,7 +73,7 @@ adam = tf.keras.optimizers.Adam(learning_rate=0.001)
 model.compile(loss='categorical_crossentropy',
               optimizer=adam, metrics=['accuracy'])
 earlystop = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', min_delta=0, patience=25, mode='auto')
+    monitor='val_loss', min_delta=0, patience=5, mode='auto')
 checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
     project_root / 'models/bn_lstm'), monitor='val_loss', verbose=1, save_best_only=True, mode='min')
 history = model.fit(X, Y, epochs=500, validation_split=0.2,
@@ -81,9 +83,9 @@ model.save(str(project_root / 'models/bn_lstm/bn_lstm.h5'), save_format='h5')
 with open(str(project_root / 'models/bn_lstm/history'), 'wb') as file_pi:
     pickle.dump(history.history, file_pi)
 
-fig = plt.figure(figsize=(3, 6))
-plt.plot(history.history['acc'])
-plt.plot(history.history['val_acc'])
+fig = plt.figure(figsize=(10, 6))
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
 plt.title('model accuracy')
 plt.ylabel('accuracy')
 plt.xlabel('epoch')
@@ -91,7 +93,7 @@ plt.legend(['train', 'val'], loc='upper left')
 plt.show()
 fig.savefig(str(project_root / 'models/bn_lstm/accuracy.png'), dpi=fig.dpi)
 
-fig = plt.figure(figsize=(3, 6))
+fig = plt.figure(figsize=(10, 6))
 plt.plot(history.history['loss'])
 plt.plot(history.history['val_loss'])
 plt.title('model loss')
@@ -100,3 +102,49 @@ plt.xlabel('epoch')
 plt.legend(['train', 'val'], loc='upper left')
 plt.show()
 fig.savefig(str(project_root / 'models/bn_lstm/loss.png'), dpi=fig.dpi)
+
+
+# model training with attention
+model = tf.keras.Sequential()
+model.add(tf.keras.layers.Embedding(
+    total_words, max_sequence_len-1, input_length=max_sequence_len-1))
+model.add(tf.keras.layers.LSTM(128, return_sequences=True))
+model.add(Attention())
+# model.add(tf.keras.layers.Dense(50, activation='relu'))
+model.add(tf.keras.layers.Dense(total_words, activation='softmax'))
+adam = tf.keras.optimizers.Adam(learning_rate=0.001)
+model.compile(loss='categorical_crossentropy',
+              optimizer=adam, metrics=['accuracy'])
+earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss', min_delta=0, patience=5, mode='auto')
+checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
+    project_root / 'models/bn_lstm_with_attention'), monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+history = model.fit(X, Y, epochs=500, validation_split=0.2,
+                    callbacks=[earlystop, checkpoint])
+model.save(str(project_root /
+           'models/bn_lstm_with_attention/bn_lstm_with_attention.h5'), save_format='h5')
+
+with open(str(project_root / 'models/bn_lstm_with_attention/history'), 'wb') as file_pi:
+    pickle.dump(history.history, file_pi)
+
+fig = plt.figure(figsize=(10, 6))
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'val'], loc='upper left')
+plt.show()
+fig.savefig(
+    str(project_root / 'models/bn_lstm_with_attention/accuracy.png'), dpi=fig.dpi)
+
+fig = plt.figure(figsize=(10, 6))
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'val'], loc='upper left')
+plt.show()
+fig.savefig(
+    str(project_root / 'models/bn_lstm_with_attention/loss.png'), dpi=fig.dpi)
