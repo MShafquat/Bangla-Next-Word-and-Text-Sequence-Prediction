@@ -73,3 +73,7 @@ def runlinks(base='https://www.ebanglalibrary.com/', maxlink=104453):
     except KeyboardInterrupt as ke:
         save_state(track)
         program_close()
+    
+    except Exception as e:
+        save_state(track)
+        program_close()
