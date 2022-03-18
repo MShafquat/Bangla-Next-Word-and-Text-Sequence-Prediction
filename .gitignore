@@ -3,6 +3,9 @@ data/
 processed_data/
 tmp*/
 
+# logs
+logs/
+
 # model
 models/
 
