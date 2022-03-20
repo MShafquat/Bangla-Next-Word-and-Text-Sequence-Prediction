@@ -11,7 +11,7 @@ model_dir = project_root / 'models/bn_gpt2/'
 tokenizer = AutoTokenizer.from_pretrained(model_dir)
 model = TFGPT2LMHeadModel.from_pretrained(str(model_dir))
 
-text = "শেখ হাসিনা"
+text = ""
 # encoding the input text
 input_ids = tokenizer.encode(text, return_tensors='tf')
 print(input_ids)
