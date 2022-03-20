@@ -3,10 +3,9 @@
 Different next-word prediction models are implemented and trained using Bangla books dataset.
 
 ## Necessary steps to setup the project
-1. Download and extract the dataset, `bn_dedup.txt` and moved to `data/` directory.
-2. Create a virtual environment: `python3 -m venv venv`.
-3. Install required packages: `pip install -r requirements.txt`
-4. Activate the virtual environment: `source venv/bin/activate`
+1. Create a virtual environment: `python3 -m venv venv`.
+2. Install required packages: `pip install -r requirements.txt`
+3. Activate the virtual environment: `source venv/bin/activate`
 
 ## Project Structure
 
