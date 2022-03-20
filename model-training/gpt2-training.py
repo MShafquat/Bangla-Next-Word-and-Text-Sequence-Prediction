@@ -1,56 +1,89 @@
+import os
 from pathlib import Path
 import pickle
-from datasets import load_dataset
-from transformers import AutoTokenizer, DataCollatorForLanguageModeling, GPT2LMHeadModel
-from transformers import Trainer, TrainingArguments
+from transformers import AutoTokenizer, TFGPT2LMHeadModel
+from transformers import WEIGHTS_NAME, CONFIG_NAME
+import tensorflow as tf
+import matplotlib.pyplot as plt
 
 # get data directory
 project_root = Path(__file__).resolve().parents[1]
 data_dir = project_root / 'processed_data/'
 files = [str(file) for file in Path(data_dir).glob('**/*.txt')]
+model_dir = project_root / 'models/bn_gpt2/'
+os.makedirs(model_dir, exist_ok=True)
 
+# create tokenizer and model from pretrained model
 tokenizer = AutoTokenizer.from_pretrained("flax-community/gpt2-bengali")
-tokenizer.add_special_tokens({'pad_token': '<pad>', 'bos_token': '<s>', 'eos_token': '</s>'})
-model = GPT2LMHeadModel.from_pretrained("flax-community/gpt2-bengali")
-data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+tokenizer.add_special_tokens(
+    {'pad_token': '<pad>', 'bos_token': '<s>', 'eos_token': '</s>'})
+model = TFGPT2LMHeadModel.from_pretrained(
+    "flax-community/gpt2-bengali", from_pt=True)
 
-dataset = load_dataset('text', data_files={'train': files[:1], 'eval': files[1:2]})
-dataset = dataset.map(lambda example: tokenizer(example['text']), batched=True, num_proc=4, remove_columns=['text'])
+# create a string from files text
+with open(files[0], 'r') as f:
+    text = f.read()[:5_000]
 
-training_arguments = TrainingArguments(
-    output_dir=str(project_root / 'models/bn-gpt2'),
-    overwrite_output_dir=True,
-    num_train_epochs=3,
-    save_total_limit=2,
-    save_steps=1000,
-    per_device_train_batch_size=4,
-    per_device_eval_batch_size=4,
-    gradient_accumulation_steps=32,
-    learning_rate=1e-5,
-    fp16=True,
-    fp16_opt_level='O1',
-    max_grad_norm=1.0,
-    resume_from_checkpoint=str(project_root / 'models/bn-gpt2'),
-    logging_dir=str(project_root / 'logs/bn-gpt2'),
-    logging_first_step=False,
-    logging_steps=500,
-    # do_eval=True,
-    seed=42,
-)
+# tokenize the text
+string_tokenized = tokenizer.encode(text)
 
-trainer = Trainer(
-    model=model,
-    args=training_arguments,
-    tokenizer=tokenizer,
-    train_dataset=dataset['train'],
-    # eval_dataset=dataset['eval'],
-)
+# create a list of block size tokens
+examples = []
+block_size = 100
+BATCH_SIZE = 12
+BUFFER_SIZE = 1000
+for i in range(0, len(string_tokenized) - block_size + 1, block_size):
+    examples.append(string_tokenized[i:i + block_size])
 
-trainer.train()
-trainer.save_model()
+# create inputs and labels
+inputs, labels = [], []
+for ex in examples:
+    inputs.append(ex[:-1])
+    labels.append(ex[1:])
+dataset = tf.data.Dataset.from_tensor_slices((inputs, labels))
+dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
 
-history = trainer.logs()
-print(history)
 
-with open(str(project_root / 'models/bn_gpt2/history'), 'wb') as file_pi:
+# create model parameters
+adam = tf.keras.optimizers.Adam(learning_rate=0.001)
+# definining our loss function
+loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+# defining our metric which we want to observe
+metric = tf.keras.metrics.SparseCategoricalAccuracy('accuracy')
+model.compile(loss=[loss, *[None] * model.config.n_layer], optimizer=adam, metrics=[metric])
+checkpoint = tf.keras.callbacks.ModelCheckpoint(str(model_dir), monitor='loss', verbose=1, save_best_only=True, mode='min')
+history = model.fit(dataset, epochs=3, callbacks=[checkpoint])
+
+print(history.history)
+with open(str(model_dir / 'history'), 'wb') as file_pi:
     pickle.dump(history.history, file_pi)
+
+# save model
+model_to_save = model.module if hasattr(model, 'module') else model
+output_model_file = os.path.join(model_dir, WEIGHTS_NAME)
+output_config_file = os.path.join(model_dir, CONFIG_NAME)
+# save model and model configs
+model.save_pretrained(model_dir)
+model_to_save.config.to_json_file(output_config_file)
+# save tokenizer
+tokenizer.save_pretrained(model_dir)
+
+fig = plt.figure(figsize=(10, 6))
+plt.plot(history.history['logits_accuracy'])
+# plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+# plt.legend(['train', 'val'], loc='upper left')
+# plt.show()
+fig.savefig(str(model_dir / 'accuracy.png'), dpi=fig.dpi)
+
+fig = plt.figure(figsize=(10, 6))
+plt.plot(history.history['logits_loss'])
+# plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+# plt.legend(['train', 'val'], loc='upper left')
+# plt.show()
+fig.savefig(str(model_dir / 'loss.png'), dpi=fig.dpi)
