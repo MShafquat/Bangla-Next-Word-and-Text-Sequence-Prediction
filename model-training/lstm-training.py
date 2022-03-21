@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.preprocessing.text import Tokenizer
+from transformers import AutoTokenizer
 from matplotlib import pyplot as plt
 
 
@@ -25,127 +25,121 @@ class Attention(tf.keras.layers.Layer):
         return K.sum(output, axis=1)
 
 
+def create_lstm_model(vocab_size, block_size, with_attention=False):
+    # model training without attention
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.Embedding(
+        vocab_size, 128, input_length=block_size))
+    model.add(tf.keras.layers.LSTM(128, return_sequences=True))
+    if with_attention:
+        model.add(Attention())
+    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.LSTM(64))
+    # model.add(tf.keras.layers.Dense(50, activation='relu'))
+    model.add(tf.keras.layers.Dense(vocab_size, activation='softmax'))
+    adam = tf.keras.optimizers.Adam(learning_rate=0.001)
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=adam, metrics=['accuracy'])
+    return model
+
+
+def append_history(total_history, new_history):
+    for key in total_history.keys():
+        total_history[key] += new_history[key]
+    return total_history
+
+
+def create_plot(x, y, title, xlabel, ylabel, save_path):
+    fig = plt.figure(figsize=(10, 6))
+    plt.plot(x, np.range(1, len(x) + 1))
+    plt.plot(y, np.range(1, len(y) + 1))
+    plt.title(title)
+    plt.xlabel(xlabel=xlabel)
+    plt.ylabel(ylabel=ylabel)
+    plt.legend(['train', 'val'], loc='upper left')
+    fig.savefig(save_path, dpi=fig.dpi)
+
+
 # get data directory
 project_root = Path(__file__).resolve().parents[1]
 data_dir = project_root / 'processed_data/'
-file = [str(file) for file in Path(data_dir).glob('**/*.txt')][0]
+files = [str(file) for file in Path(data_dir).glob('**/*.txt')][:3]
 
 # create tokenizer
-tokenizer = Tokenizer()
-with open(file, 'r') as f:
-    text = f.read()[:500_000]
+tokenizer = AutoTokenizer.from_pretrained("flax-community/gpt2-bengali")
+tokenizer.add_special_tokens(
+    {'pad_token': '<pad>', 'bos_token': '<s>', 'eos_token': '</s>'})
+vocab_size = tokenizer.vocab_size
 
-corpus = text.split('\n')
-tokenizer.fit_on_texts(corpus)
-total_words = len(tokenizer.word_counts)+1
-tokenizer_path = str(
-    project_root / f'models/bn_lstm/tokenizer_len{str(total_words)}.pickle')
-with open(tokenizer_path, 'wb') as handle:
-    pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
-input_sequences = []
+block_size = 512
+BATCH_SIZE = 12
+BUFFER_SIZE = 1000
+validation_split = 0.2
 
-for line in corpus:
-    token_list = tokenizer.texts_to_sequences([line])[0]
-    for i in range(1, len(token_list)):
-        n_gram_sequence = token_list[:i+1]
-        input_sequences.append(n_gram_sequence)
-max_sequence_len = max([len(x) for x in input_sequences])
-input_sequences = tf.keras.preprocessing.sequence.pad_sequences(
-    input_sequences, maxlen=max_sequence_len, dtype='int32', padding='pre',
-    truncating='pre', value=0
-)
+lstm_model = create_lstm_model(
+    vocab_size=vocab_size, block_size=block_size, with_attention=False)
+lstm_model_with_attention = create_lstm_model(
+    vocab_size=vocab_size, block_size=block_size, with_attention=True)
+lstm_model_dir = project_root / 'models/bn_lstm/'
+lstm_model_with_attention_dir = project_root / 'models/bn_lstm_attention/'
 
-X = input_sequences[:, :-1]
-labels = input_sequences[:, -1]
-Y = tf.keras.utils.to_categorical(labels, num_classes=total_words)
+lstm_model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+    str(lstm_model_dir), monitor='loss', verbose=1, save_best_only=True, mode='min')
+lstm_model_with_attention_checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
+    lstm_model_with_attention_dir), monitor='loss', verbose=1, save_best_only=True, mode='min')
 
+lstm_model_history = {
+    'loss': [],
+    'val_loss': [],
+    'acc': [],
+    'val_acc': []
+}
 
-# model training without attention
-model = tf.keras.Sequential()
-model.add(tf.keras.layers.Embedding(
-    total_words, 128, input_length=max_sequence_len-1))
-model.add(tf.keras.layers.LSTM(128, return_sequences=True))
-model.add(tf.keras.layers.Dropout(0.2))
-model.add(tf.keras.layers.LSTM(64))
-# model.add(tf.keras.layers.Dense(50, activation='relu'))
-model.add(tf.keras.layers.Dense(total_words, activation='softmax'))
-adam = tf.keras.optimizers.Adam(learning_rate=0.001)
-model.compile(loss='categorical_crossentropy',
-              optimizer=adam, metrics=['accuracy'])
-earlystop = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', min_delta=0, patience=5, mode='auto')
-checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
-    project_root / 'models/bn_lstm/bn_lstm_{epoch:02d}_{val_loss:.4f}.h5'), monitor='val_loss', verbose=1, save_best_only=True, mode='min')
-history = model.fit(X, Y, epochs=100, validation_split=0.2, batch_size=128,
-                    callbacks=[checkpoint])
-model.save(str(project_root / 'models/bn_lstm/bn_lstm.h5'), save_format='h5')
+lstm_model_with_attention_history = {
+    'loss': [],
+    'val_loss': [],
+    'acc': [],
+    'val_acc': []
+}
 
-with open(str(project_root / 'models/bn_lstm/history'), 'wb') as file_pi:
-    pickle.dump(history.history, file_pi)
+for file in files:
+    with open(file, 'r') as f:
+        text = f.read()
+        tokenized_text = tokenizer.encode(text, return_tensors='tf')
+        print(tokenized_text)
+        inputs = []
+        labels = []
+        for i in range(0, len(tokenized_text) - block_size + 1, block_size):
+            block = tokenized_text[i:i + block_size]
+            inputs.append(block[:-1])
+            labels.append(block[-1])
+        validation_size = int(len(inputs) * validation_split)
+        train_dataset = tf.data.Dataset.from_tensor_slices(
+            (inputs[:validation_size], labels[:validation_size]))
+        validation_dataset = tf.data.Dataset.from_tensor_slices(
+            (inputs[validation_size:], labels[validation_size:]))
+        dataset = dataset.shuffle(BUFFER_SIZE).batch(
+            BATCH_SIZE, drop_remainder=True)
+        history = lstm_model.fit(dataset, epochs=3, callbacks=[
+                                 lstm_model_checkpoint])
+        history_with_attention = lstm_model_with_attention.fit(
+            dataset, epochs=3, callbacks=[lstm_model_with_attention_checkpoint])
 
-fig = plt.figure(figsize=(10, 6))
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title('model accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
-# plt.show()
-fig.savefig(str(project_root / 'models/bn_lstm/accuracy.png'), dpi=fig.dpi)
+        append_history(lstm_model_history, history.history)
+        append_history(lstm_model_with_attention_history,
+                       history_with_attention.history)
 
-fig = plt.figure(figsize=(10, 6))
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
-# plt.show()
-fig.savefig(str(project_root / 'models/bn_lstm/loss.png'), dpi=fig.dpi)
+lstm_model.save(str(lstm_model_dir / 'model.h5'), save_format='h5')
+lstm_model_with_attention.save(
+    str(lstm_model_with_attention_dir / 'model.h5'), save_format='h5')
 
+with open(str(lstm_model_dir / 'history'), 'wb') as file_pi:
+    pickle.dump(lstm_model_history, file_pi)
 
-# model training with attention
-model = tf.keras.Sequential()
-model.add(tf.keras.layers.Embedding(
-    total_words, 128, input_length=max_sequence_len-1))
-model.add(tf.keras.layers.LSTM(128, return_sequences=True))
-model.add(Attention())
-# model.add(tf.keras.layers.Dense(50, activation='relu'))
-model.add(tf.keras.layers.Dense(total_words, activation='softmax'))
-adam = tf.keras.optimizers.Adam(learning_rate=0.001)
-model.compile(loss='categorical_crossentropy',
-              optimizer=adam, metrics=['accuracy'])
-earlystop = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', min_delta=0, patience=5, mode='auto')
-checkpoint = tf.keras.callbacks.ModelCheckpoint(str(
-    project_root / 'models/bn_lstm_with_attention/bn_lstm_with_attention_{epoch:02d}_{val_loss:.4f}.h5'),
-    monitor='val_loss', verbose=1, save_best_only=True, mode='min')
-history = model.fit(X, Y, epochs=100, validation_split=0.2, batch_size=128,
-                    callbacks=[checkpoint])
-model.save(str(project_root /
-           'models/bn_lstm_with_attention/bn_lstm_with_attention.h5'), save_format='h5')
+with open(str(lstm_model_with_attention_dir / 'history'), 'wb') as file_pi:
+    pickle.dump(lstm_model_with_attention_history, file_pi)
 
-with open(str(project_root / 'models/bn_lstm_with_attention/history'), 'wb') as file_pi:
-    pickle.dump(history.history, file_pi)
-
-fig = plt.figure(figsize=(10, 6))
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title('model accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
-# plt.show()
-fig.savefig(
-    str(project_root / 'models/bn_lstm_with_attention/accuracy.png'), dpi=fig.dpi)
-
-fig = plt.figure(figsize=(10, 6))
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
-# plt.show()
-fig.savefig(
-    str(project_root / 'models/bn_lstm_with_attention/loss.png'), dpi=fig.dpi)
+create_plot(lstm_model_history['loss'], lstm_model_history['val_loss'],
+            'LSTM Model Loss', 'Loss', 'Epochs', str(lstm_model_dir / 'loss.png'))
+create_plot(lstm_model_history['acc'], lstm_model_history['val_acc'],
+            'LSTM Model Accuracy', 'Accuracy', 'Epochs', str(lstm_model_dir / 'acc.png'))
