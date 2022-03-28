@@ -127,8 +127,7 @@ history = {
     'val_loss': []
 }
 
-for file in train_files:
-    print(file)
+for file in tqdm(train_files):
     new_history = train_lstm_model(file, model, epochs=1)
     history = append_history(history, new_history)
 
