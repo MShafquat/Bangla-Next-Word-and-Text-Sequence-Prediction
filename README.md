@@ -22,8 +22,9 @@ and after preprocessing stores the preprocessed files to the `processed_data` di
 file which takes two string parameters as constructor: `unprocessed_files_dir` which contains unprocessed text
 files and `processed_files_dir` where the processed files will be stored. The processed files will have the
 same name as the original files.
+3. Books from renowned authors are manually picked and stored in `processed_data` and used without preprocessing
+since they are already clean.
 
 ### Model Training
-1. We are training LSTM models with and without attention mechanism, and fine-tuning a
-[Bangla GPT2 pretrained model](https://huggingface.co/flax-community/gpt2-bengali).
-The training scripts are available in [model-training](./model-training/).
+1. We are training an LSTM model, and fine-tuning a [Bangla GPT2 pretrained model](https://huggingface.co/flax-community/gpt2-bengali).
+The training notebooks are available in [model-training](./model-training/). Models are stored in `models` directory.
