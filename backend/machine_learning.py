@@ -1,11 +1,13 @@
 import numpy as np
 import tensorflow as tf
+from pathlib import Path
 from transformers import AutoTokenizer, TFGPT2LMHeadModel
 
-gpt2_model_dir = 'mlmodels\\bn_gpt2'
+project_root = Path(__file__).resolve().parent
+gpt2_model_dir = project_root / 'mlmodels/bn_gpt2'
 
 tokenizer = AutoTokenizer.from_pretrained(gpt2_model_dir)
-model = TFGPT2LMHeadModel.from_pretrained(str(gpt2_model_dir), from_pt=True)
+model = TFGPT2LMHeadModel.from_pretrained(str(gpt2_model_dir))
 # model = tf.keras.models.load_model(gpt2_model_dir)
 
 def generate_text(text, model, tokenizer):
