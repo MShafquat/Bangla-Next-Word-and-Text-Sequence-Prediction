@@ -4,6 +4,7 @@ We have trained an LSTM model and fine-tuned a GPT-2 model on our scraped Bangla
 There are two notebooks available in this directory for training the two models:
 1. [LSTM Training](./LSTM%20Training.ipynb)
 2. [GPT2 Training](./GPT-2%20Training.ipynb)
+
 The notebooks contain all the details.
 
 ### TODO
