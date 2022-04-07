@@ -7,13 +7,13 @@ from ml_prediction.machine_learning import predict_lstm
 
 app = Flask(__name__)
 
-@app.route('/predict/lstm', methods=['GET'])
+@app.route('/api/predict/lstm', methods=['GET'])
 def predict_lstm_view():
     input = request.args.get('input')
     res = predict_lstm(str(input))
     return  jsonify(res)
 
-@app.route('/predict/gpt2', methods=['GET'])
+@app.route('/api/predict/gpt2', methods=['GET'])
 def predict_gpt2_view():
     return jsonify(['ami', 'jani', 'ki', 'hdf'])
     
