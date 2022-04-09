@@ -1,6 +1,6 @@
-# Bangla Next Word Prediction
+# Bangla Next Word and Text Sequence Prediction
 
-Different next-word prediction models are implemented and trained using Bangla books dataset.
+Training LSTM and GPT-2 models for Bangla word and text sequence prediction.
 
 ## Necessary steps to setup the project
 1. Create a virtual environment: `python3 -m venv venv`.
@@ -27,4 +27,4 @@ since they are already clean.
 
 ### Model Training
 1. We are training an LSTM model, and fine-tuning a [Bangla GPT2 pretrained model](https://huggingface.co/flax-community/gpt2-bengali).
-The training notebooks are available in [model-training](./model-training/). Models are stored in `models` directory.
+The training notebooks are available in [model-training](./model-training/). Models are generated locally in `models` directory. Our trained model is also released in github.
